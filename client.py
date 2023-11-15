@@ -5,7 +5,7 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 import os
 import fileinput
 
-STD_IN = sys.stdin
+# STD_IN = sys.stdin
 SRC_IP_ADDRESS = sys.argv[1]
 SRC_PORT = sys.argv[2]
 DST_IP_ADDRESS = sys.argv[3]
@@ -73,8 +73,8 @@ class Client:
             pass
     
     def take_user_input(self):
-        self.user_input = input("Please enter the message:\n")
-        print("done")
+        for line in sys.stdin:
+            self.user_input += line
         
     def create_header(self, seq_num: int, ack_num: int):
         size_of_data = len(self.chunks[seq_num])
@@ -140,9 +140,7 @@ class Client:
                 
                 # Log timeout
                 print("Timeout occurred")
-            
+
 if __name__ == "__main__":
-    for line in STD_IN:
-        print(line)
     client = Client()
     client.start_client()
