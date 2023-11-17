@@ -4,72 +4,76 @@ import sys
 from ipaddress import ip_address, IPv4Address, IPv6Address
 import os
 
+MAX_MESSAGE_SIZE = 4294967295
 SRC_IP_ADDRESS = sys.argv[1]
 SRC_PORT = int(sys.argv[2])
 DST_IP_ADDRESS = sys.argv[3]
 DST_PORT = int(sys.argv[4])
 SERVER_TIMEOUT = 1
-
-def validate_ip(ip: str):
-    try:
-        ip = ip_address(str(sys.argv[1]))
-        if isinstance(ip, IPv4Address):
-            ip_address_family = "IPv4"
-        elif isinstance(ip, IPv6Address):
-            ip_address_family = "IPv6"
-        else:
-            return False
-    except Exception as e:
-        return False
-        
-if len(sys.argv) != 5:
-    print(
-        "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port> <destination ipv4_addr or ipv6_addr> <destination port>"
-    )
-    sys.exit(1)
-if validate_ip(sys.argv[1]) is False or validate_ip(sys.argv[3]) is False:
-    print("Invalid IP address")
-    sys.exit(1)
-if sys.argv[2].isnumeric() is False or sys.argv[4].isnumeric() is False:
-    print("Port number must be numeric")
-    sys.exit(1)
-if (int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535) or (int(sys.argv[4]) < 1024) or (int(sys.argv[4]) > 65535):
-    print("Port number must be between 1024 and 65535")
-    sys.exit(1)
-
-# Decode data
-def decode(data, type):
-    if type == "utf-8":
-        return data.decode("utf-8")
-    if type == "big-endian":
-        return int.from_bytes(data, "big")
-    else:
-        assert False, "Unknown data type"
-
-# Extract data
-def extract(data: bytes, size: int):
-    print("Extracting data...")
-    if data is None:
-        print("No data to extract")
-    if size is None:
-        print("No size to extract")
-    extracted_data = data[:size]
-    remaining_data = b""
-    if len(data) > size:
-        remaining_data = data[size:]
-    return extracted_data, remaining_data
+STATIC_SEQ = 0
 
 class Server:
     
+    # Initialize the server
     def __init__(self) -> None:
-        pass
+        self.destination_port = 0
+        self.packets = []
+        self.decoded_packets = {}
+        self.decoded_message = b""
+        self.seq_numbers = []
+        self.ack = 0
+        self.seq = 0
+        self.full_message_size = 0
+        self.check_args()
     
+    # Validate the IP address
+    # TODO: Make the ip_address_family a class variable so that server can create a socket with the correct IP address family passed in
+    def validate_ip(self, ip: str):
+        try:
+            ip = ip_address(str(sys.argv[1]))
+            if isinstance(ip, IPv4Address):
+                ip_address_family = "IPv4"
+            elif isinstance(ip, IPv6Address):
+                ip_address_family = "IPv6"
+            else:
+                return False
+        except Exception as e:
+            return False
+
+    # Check the arguments
+    def check_args(self):
+        if len(sys.argv) != 5:
+            print(
+                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port> <destination ipv4_addr or ipv6_addr> <destination port>"
+            )
+            sys.exit(1)
+        if self.validate_ip(sys.argv[1]) is False or self.validate_ip(sys.argv[3]) is False:
+            print("Invalid IP address")
+            sys.exit(1)
+        if sys.argv[2].isnumeric() is False or sys.argv[4].isnumeric() is False:
+            print("Port number must be numeric")
+            sys.exit(1)
+        if (int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535) or (int(sys.argv[4]) < 1024) or (int(sys.argv[4]) > 65535):
+            print("Port number must be between 1024 and 65535")
+            sys.exit(1)
+            
+    # Decode data
+    def decode(self, data: bytes, type: str):
+        if type == "utf-8":
+            return data.decode("utf-8")
+        if type == "big-endian":
+            return int.from_bytes(data, "big")
+        else:
+            assert False, "Unknown data type"
+    
+    # Decapsulate the packet payload from the header
     def decapsulate(self, data: bytes):
         print("Decapsulating...")
         if data is None:
             print("No data to decapsulate")
-        header = data[:12]
-        payload = data[12:]
+        # Header is 20 bytes long. 2 bytes for source port, 2 bytes for destination port, 2 bytes for size of data, 2 bytes for window size, 4 bytes for sequence number, 4 bytes for ack number, and 4 bytes for message size
+        header = data[:20]
+        payload = data[20:]
         return header, payload
     
     def extract_header_details(self, header: bytes):
@@ -81,26 +85,57 @@ class Server:
             print("No header to extract")
             
         # Extracting the header details
-        size_of_data = header[:2]
-        window_size = header[2:4]
-        seq_num = header[4:8]
-        ack_num = header[8:12]
+        # Header is 20 bytes long. 2 bytes for source port, 2 bytes for destination port, 2 bytes for size of data, 2 bytes for window size, 4 bytes for sequence number, 4 bytes for ack number, and 4 bytes for message size
+        source_port = header[:2]
+        destination_port = header[2:4]
+        size_of_data = header[4:6]
+        window_size = header[6:8]
+        seq_num = header[8:12]
+        ack_num = header[12:16]
+        message_size = header[16:]
         
         # Decoding the header details
-        size_of_data = decode(size_of_data, "big-endian")
-        window_size = decode(window_size, "big-endian")
-        seq_num = decode(seq_num, "big-endian")
-        ack_num = decode(ack_num, "big-endian")
+        source_port = self.decode(source_port, "big-endian")
+        destination_port = self.decode(destination_port, "big-endian")
+        size_of_data = self.decode(size_of_data, "big-endian")
+        window_size = self.decode(window_size, "big-endian")
+        seq_num = self.decode(seq_num, "big-endian")
+        ack_num = self.decode(ack_num, "big-endian")
+        message_size = self.decode(message_size, "big-endian")
         
         # Return the header details
-        return size_of_data, window_size, seq_num, ack_num
+        return source_port, destination_port, size_of_data, window_size, seq_num, ack_num, message_size
+    
+    # Decode the packet and store it in the decoded_packets dictionary
+    def decode_packet(self, packet: bytes):
+        
+        # Decapsulate the packet
+        header, payload = self.decapsulate(packet)
+        
+        # Extract the header details
+        source_port, destination_port, size_of_data, window_size, seq_num, ack_num, message_size = self.extract_header_details(header)
+        
+        # Set the full message size
+        self.full_message_size = message_size
+        
+        # If the sequence number is not in the sequence numbers list, add it to the list and decode the packet
+        if seq_num not in self.seq_numbers:
+            self.seq_numbers.append(seq_num)
+            self.destination_port = source_port
+            self.decoded_packets[seq_num] = { "destination_port": destination_port, "size_of_data": size_of_data, "window_size": window_size, "seq_num": seq_num, "ack_num": ack_num, "payload": payload}
+    
+    # Soft reset the server
+    def soft_reset_server(self):
+        self.packets = []
+        self.seq_numbers = []
+        self.decoded_packets = {}
+    
+    # Create the header
+    def create_header(self, source_port: int, destination_port: int, size_of_data: int, window_size: int, seq_num: int, ack_num: int, message_size: int):
+        header = source_port.to_bytes(2, "big") + destination_port.to_bytes(2, "big") + size_of_data.to_bytes(2, "big") + window_size.to_bytes(2, "big") + seq_num.to_bytes(4, "big") + ack_num.to_bytes(4, "big") + message_size.to_bytes(4, "big")
+        return header
     
     def start_server(self):
-        
-        # Define local variables
-        ip_address_family = ""
-        current_ack = 0
-        decoded_data = ""
         
         # Create the server socket
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_sock:
@@ -113,41 +148,62 @@ class Server:
             # While the server is running
             while True:
                 
-                # Receive data from the client through the proxy or client
-                data, addr = server_sock.recvfrom(1024)
-                
-                # Separate each packet from the data
-                for i in range(0, len(data)):
-                    size_of_data = data[i:i+2]
+                # Try to receive data from the client through the proxy or client
+                try:
                     
-                    packet = data[i:i+1024]
-                    print(f"Packet: {packet}")
+                    # Receive data from the client through the proxy or client
+                    data, addr = server_sock.recvfrom(1024)
+                    
+                    # Add the data to the packets list
+                    self.packets.append(data)
+                    
+                    # If the server socket is not set to timeout, set it to timeout
+                    if server_sock.gettimeout() is None:
+                        server_sock.settimeout(SERVER_TIMEOUT)
                 
-                # Decapsulate the data from the packet
-                header, payload = self.decapsulate(data)
-                
-                # Extract the header details
-                size_of_data, window_size, seq_num, ack_num = self.extract_header_details(header)
-                
-                # Log the header details
-                print(f"size_of_data: {size_of_data}")
-                print(f"window_size: {window_size}")
-                print(f"seq_num: {seq_num}")
-                print(f"ack_num: {ack_num}")
-                
-                
-                
-                
-                
-                # ack, data = extract(data, 4)
-                # ack = decode(ack, "big-endian")
-                # print(ack)
-                # if ack > current_ack and ack + current_ack < 1024:
-                #     current_ack = ack
-                #     decoded_data += decode(data, "utf-8")
-                # print(f"Server received: {data.decode()}")
-                # # Sending ACK back to the client through the proxy
-                # server_sock.sendto(ack.to_bytes(4, byteorder="big"), (DST_IP_ADDRESS, DST_PORT))
+                # When the server times out
+                except socket.timeout:
+                    
+                    # Read the data and send an ACK back to the client through the proxy or client
+                    for i in range(0, len(self.packets)):
+                        self.decode_packet(self.packets[i])
+                    
+                    # Get the sequence numbers from the decoded packets in order
+                    seq_nums = list(self.decoded_packets.keys())
+                    seq_nums.sort()
+                    
+                    # Send ACK back to the client through the proxy or client
+                    ack_num = self.ack
+                    for i in range(0, len(seq_nums)):
+                        if seq_nums[i] == ack_num:
+                            print(f"seq_num: {seq_nums[i]}")
+                            ack_num += 1
+                            self.decoded_message += self.decoded_packets[seq_nums[i]]["payload"]
+                        else:
+                            self.soft_reset_server()
+                            break
+                    
+                    # TODO: Clarify if the server can take the client/proxy IP address from the command line.
+                    if self.ack != ack_num:
+                        self.ack = ack_num
+                        header = self.create_header(SRC_PORT, self.destination_port, 0, 1, ack_num, 0, 0)
+                        packet = header + b""
+                        server_sock.sendto(packet, (DST_IP_ADDRESS, self.destination_port))
+                    
+                    # Check if the full message has been received
+                    # TODO: Make ACK accurate to the data received so that we can change the >= operator to ==
+                    # Right now the ACK also counts the extra padding that is added to the last packet
+                    # The decoded_message also counts the extra padding that is added to the last packet
+                    print(self.ack * 1004)
+                    print(self.full_message_size)
+                    if self.ack * 1004 >= self.full_message_size:
+                        print("Full message received")
+                        break
+            
+            # Print the full message
+            print("Printing full message...")
+            with open('output.txt', 'a') as sys.stdout:
+                print(self.decoded_message.decode("utf-8"), end="")
                 
 if __name__ == "__main__":
     server = Server()
