@@ -132,7 +132,10 @@ class Server:
     
     # Create the header
     def create_header(self, source_port: int, destination_port: int, size_of_data: int, window_size: int, seq_num: int, ack_num: int, message_size: int):
-        header = source_port.to_bytes(2, "big") + destination_port.to_bytes(2, "big") + size_of_data.to_bytes(2, "big") + window_size.to_bytes(2, "big") + seq_num.to_bytes(4, "big") + ack_num.to_bytes(4, "big") + message_size.to_bytes(4, "big")
+        header = (source_port.to_bytes(2, "big") + destination_port.to_bytes(2, "big")
+                  + size_of_data.to_bytes(2, "big") + window_size.to_bytes(2, "big")
+                  + seq_num.to_bytes(4, "big") + ack_num.to_bytes(4, "big")
+                  + message_size.to_bytes(4, "big"))
         return header
     
     def start_server(self):
@@ -188,7 +191,8 @@ class Server:
                         self.ack = ack_num
                         header = self.create_header(SRC_PORT, self.destination_port, 0, 1, ack_num, 0, 0)
                         packet = header + b""
-                        server_sock.sendto(packet, (DST_IP_ADDRESS, self.destination_port))
+                        server_sock.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
+                        print("sent to ", DST_IP_ADDRESS, ":", DST_PORT)
                     
                     # Check if the full message has been received
                     # TODO: Make ACK accurate to the data received so that we can change the >= operator to ==
@@ -204,7 +208,8 @@ class Server:
             print("Printing full message...")
             with open('output.txt', 'a') as sys.stdout:
                 print(self.decoded_message.decode("utf-8"), end="")
-                
+
+
 if __name__ == "__main__":
     server = Server()
     server.start_server()
