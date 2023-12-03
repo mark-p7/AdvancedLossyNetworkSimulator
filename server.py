@@ -213,7 +213,7 @@ class Server:
                         
                         # TODO: Clarify if the server can take the client/proxy IP address from the command line.                        
                         self.ack = ack_num
-                        header = self.create_header(SRC_PORT, self.destination_port, 0, 1, ack_num, 0, 0)
+                        header = self.create_header(SRC_PORT, self.destination_port, 0, 1, 0, ack_num, 0)
                         packet = header + b""
                         
                         # Log the ACK
