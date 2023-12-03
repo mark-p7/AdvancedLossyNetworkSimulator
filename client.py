@@ -11,8 +11,10 @@ SRC_PORT = sys.argv[2]
 DST_IP_ADDRESS = sys.argv[3]
 DST_PORT = sys.argv[4]
 CLIENT_TIMEOUT = 1
-MAX_WINDOW_SIZE = 5
+MAX_WINDOW_SIZE = 2
 STATIC_ACK = 0
+RESERVED_SEQ = 4294967295
+MAX_TERMINATION_REQUESTS = 20
 
 class Client:
     
@@ -25,10 +27,14 @@ class Client:
         self.user_input = ""
         self.window_base = 0
         self.ack_num = 0
+        self.seq_num = 0
+        self.full_chunks_size = 0
         self.chunks = []
         self.source_port = int(SRC_PORT)
         self.destination_port = int(DST_PORT)
         self.full_message_size = 0
+        self.completed_chunks_size = 0
+        self.connection_closed = False
     
     def validate_ip(self, ip: str):
         try:
@@ -68,6 +74,9 @@ class Client:
         
     def start_timeout(self):
         self.client_socket.settimeout(CLIENT_TIMEOUT)
+        
+    def stop_timeout(self):
+        self.client_socket.settimeout(None)
     
     def wait_for_timeout(self):
         while time.time() - self.timeout < CLIENT_TIMEOUT:
@@ -78,10 +87,111 @@ class Client:
             self.user_input += line
         
     def create_header(self, seq_num: int, ack_num: int):
-        size_of_data = len(self.chunks[seq_num])
+        size_of_data = 0
+        if seq_num is not RESERVED_SEQ:
+            size_of_data = len(self.chunks[seq_num - self.completed_chunks_size])
         # Header is 20 bytes long. 2 bytes for source port, 2 bytes for destination port, 2 bytes for size of data, 2 bytes for window size, 4 bytes for sequence number, 4 bytes for ack number, and 4 bytes for message size
         header = self.source_port.to_bytes(2, "big") + self.destination_port.to_bytes(2, "big") + size_of_data.to_bytes(2, "big") + MAX_WINDOW_SIZE.to_bytes(2, "big") + seq_num.to_bytes(4, "big") + ack_num.to_bytes(4, "big") + self.full_message_size.to_bytes(4, "big")
         return header
+
+    def slide_window(self, ack_num: int):
+        # Slide window up to the ACK received
+        print(f"Sliding window up to {ack_num}")
+        self.window_base = ack_num
+        self.seq_num = ack_num
+        print(f"Window base is {self.window_base}")
+    
+    def send_data(self, i):
+        # Create sequence number
+        seq_num = i
+        # Create ack number
+        ack_num = STATIC_ACK
+        # Create protocol header
+        header = self.create_header(seq_num, ack_num)
+        # Create packet
+        packet = header + self.chunks[i - self.completed_chunks_size]
+        # Log packet sequence number
+        print(f"Packet sequence number is {seq_num}")
+        # Send packet
+        self.client_socket.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
+        # Log packet sent
+        print(f"Client sent chunk with seq num {seq_num}")
+    
+    def check_data_size(self, data):
+        if len(data) > MAX_MESSAGE_SIZE:
+            print("Message size is too large")
+            raise Exception("Message size is too large")
+        else:
+            self.full_message_size = len(data)
+            print(f"Message size is {len(data)} bytes")
+    
+    def process_data_to_send(self, line):
+        # Get user input
+        self.user_input = line
+        
+        # Encode user input into bytes
+        data_in_bytes = self.user_input.encode("utf-8")
+        
+        # Check if message size is too large
+        self.check_data_size(data_in_bytes)
+            
+        # Split data into 1004 byte chunks
+        self.chunks = [data_in_bytes[i:i+1004] for i in range(0, len(data_in_bytes), 1004)]
+
+        # Add length of new message to the current length of total packets sent
+        self.full_chunks_size += len(self.chunks)
+        
+        # Log chunks
+        print("Window Base is:", self.window_base)
+        print("Full Chunk Size is:", self.full_chunks_size)
+
+    def hard_reset_client(self):
+        self.completed_chunks_size += len(self.chunks)
+        self.chunks = []
+        self.full_message_size = 0
+        
+    def terminate_connection(self):
+        print("Terminating connection")
+        header = self.create_header(RESERVED_SEQ, STATIC_ACK)
+        packet = header + b""
+        termination_requests = 0
+        while self.connection_closed is False:
+            try:
+                self.client_socket.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
+                self.receive_ack()
+            except socket.timeout:
+                termination_requests += 1
+                # We can assume that the server has terminated the connection if we have sent over 20 termination requests with no response
+                if termination_requests == MAX_TERMINATION_REQUESTS:
+                    self.connection_closed = True
+                pass
+        print("Connection terminated")
+        self.client_socket.close()
+        time.sleep(1)
+        sys.exit(1)
+        
+    def receive_ack(self):
+        # Start timeout
+        self.start_timeout()
+        
+        # Wait for ACK
+        packet, addr = self.client_socket.recvfrom(20)
+        
+        # Stop timeout
+        self.stop_timeout()
+        
+        if packet is None:
+            return None
+        
+        # Extract ACK number from header
+        ack_num = int.from_bytes(packet[8:12], "big")
+
+        # Close connection if termination ACK received
+        if ack_num == RESERVED_SEQ:
+            print("Received termination ACK")
+            self.connection_closed = True
+        
+        return ack_num
 
     def start_client(self):
         
@@ -91,93 +201,68 @@ class Client:
         # Bind the client socket to the source IP address and port
         self.bind_client_socket()
         
-        # Take user input
-        self.take_user_input()
-        
-        # Encode user input into bytes
-        data_in_bytes = self.user_input.encode("utf-8")
-        
-        # Check if message size is too large
-        if len(data_in_bytes) > MAX_MESSAGE_SIZE:
-            print("Message size is too large")
-            sys.exit(1)
-        else:
-            self.full_message_size = len(data_in_bytes)
-            print(f"Message size is {len(data_in_bytes)} bytes")
-            
-        # Split data into 1004 byte chunks
-        self.chunks = [data_in_bytes[i:i+1004] for i in range(0, len(data_in_bytes), 1004)]
+        # # Take user input
+        # self.take_user_input()
+        try:
+            for line in sys.stdin:
+                self.process_data_to_send(line)
+                
+                # While there are still chunks to send
+                while self.window_base < self.full_chunks_size:
+                    try:
+                            
+                        # For each chunk in the current window
+                        for i in range(self.window_base, self.window_base + MAX_WINDOW_SIZE):
+                            # Check if we have reached the end of the message (the last chunk has been sent from the current window)
+                            # print(f"i is {i}")
+                            # print(f"completed chunks size is {self.completed_chunks_size}")
+                            # print(f"len of chunks is {len(self.chunks)}")
+                            # print(i - self.completed_chunks_size < len(self.chunks))
+                            
+                            if i - self.completed_chunks_size < len(self.chunks):
+                                self.send_data(i)
+                        
+                        while True:
+                            ack_num = self.receive_ack()
+                            
+                            # Check if the ACK received accounts for all packets in the current window
+                            if ack_num >= self.window_base:
+                                self.slide_window(ack_num)
+                                break
+                            
+                            # Log window base
+                            print(f"Window base is now: {self.window_base}")
+                            
+                    # If timeout occurs, resend all packets in the current window
+                    except socket.timeout:
+                        
+                        # Log timeout
+                        print("Timeout occurred")
 
-        # While there are still chunks to send
-        while self.window_base < len(self.chunks):
-            try:
-                # For each chunk in the current window
-                for i in range(self.window_base, self.window_base + MAX_WINDOW_SIZE):
-                    # Check if we have reached the end of the message (the last chunk has been sent from the current window)
-                    if i < len(self.chunks):
-                        # Create sequence number
-                        seq_num = i
-                        # Create ack number
-                        ack_num = STATIC_ACK
-                        # Create protocol header
-                        header = self.create_header(seq_num, ack_num)
-                        # Create packet
-                        packet = header + self.chunks[i]
-                        # Send packet
-                        self.client_socket.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
-                        # Log packet sent
-                        print(f"Client sent chunk with seq num {seq_num}")
-                
-                # Start timeout
-                self.start_timeout()
-                
-                while True:
-                    
-                    # Wait for ACK
-                    packet, addr = self.client_socket.recvfrom(20)
-                    
-                    if packet is None:
-                        continue
-                    
-                    # If ACK received, stop timeout
-                    self.client_socket.settimeout(None)
-                    
-                    # Print packet
-                    print(len(packet))
-                    
-                    # Extract ACK number from header
-                    source_port = int.from_bytes(packet[0:2], "big")
-                    destination_port = int.from_bytes(packet[2:4], "big")
-                    size_of_data = int.from_bytes(packet[4:6], "big")
-                    window_size = int.from_bytes(packet[6:8], "big")
-                    ack_num = int.from_bytes(packet[8:12], "big")
-                    seq_num = int.from_bytes(packet[12:16], "big")
-                    message_size = int.from_bytes(packet[16:20], "big")
-                    
-                    # Log packet details
-                    print(f"Source port: {source_port}\nDestination port: {destination_port}\nSize of data: {size_of_data}\nWindow size: {window_size}\nSequence number: {seq_num}\nACK number: {ack_num}\nMessage size: {message_size}")
-                    
-                    # Check if the ACK received is higher than the current window base
-                    if ack_num > self.window_base:
-                        # Slide window up to the ACK received
-                        self.window_base = ack_num
-                        print(f"Window base is {self.window_base}")
-                        break
-                    else:
-                        # If the ACK received is not the ACK for the highest sequence number received in the current window, start timeout again
-                        self.start_timeout()
-                    
-                    # Log window base
-                    print(f"Window base is {self.window_base}")
-                    
-            # If timeout occurs, resend all packets in the current window
-            except socket.timeout:
-                
-                # Log timeout
-                print("Timeout occurred")
-                
-        # Finish sending all chunks
-        print("Client finished sending all chunks") 
+                # Done sending all chunks in the message
+                print("Done sending all chunks in the message\n")
+                self.hard_reset_client()
+            
+            # Done sending all messages
+            self.terminate_connection()
+
+        except KeyboardInterrupt:
+            if self.connection_closed is False:
+                self.terminate_connection()
+            else:
+                print("Keyboard interrupt received")
+                self.client_socket.close()
+                time.sleep(1)
+                sys.exit(0)
+            
+        except Exception as e:
+            if self.connection_closed is False:
+                self.terminate_connection()
+            else:
+                print(e)
+                self.client_socket.close()
+                time.sleep(1)
+                sys.exit(0)
 
 if __name__ == "__main__":
     client = Client()
