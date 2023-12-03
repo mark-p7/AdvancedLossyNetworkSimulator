@@ -15,6 +15,7 @@ CLIENT_IP_ADDRESS = sys.argv[4]
 CLIENT_PORT = int(sys.argv[5])
 SERVER_IP_ADDRESS = sys.argv[6]
 SERVER_PORT = int(sys.argv[7])
+DELAY_TIME = 0.1
 
 def validate_ip(ip: str):
     try:
@@ -60,10 +61,10 @@ def check_user_input(drop_percentage, delay_percentage):
         sys.exit(1)
     
 class BufferedPacket:
-    def __init__(self, delay, packet, destination):
-        self.destination = destination
-        self.delay = delay
+    def __init__(self, time_to_send, packet, destination):
+        self.time_to_send = time_to_send
         self.packet = packet
+        self.destination = destination
 
 class Proxy:
 
@@ -74,6 +75,8 @@ class Proxy:
         self.drop_percentage = int(drop_percentage) / 100
         self.delay_percentage = int(delay_percentage) / 100
         self.buffered_packets: [BufferedPacket] = []
+        self.proxy_closing = False
+        threading.Thread(target=self.thread_delay_packet).start()
         check_args()
 
     def decode(self, data: bytes, data_type: str):
@@ -84,61 +87,25 @@ class Proxy:
         else:
             assert False, "Unknown data type"
         
-    # def log_packet(self, packet):
-    #     header = packet[:20]
-    #     source_port = header[:2]
-    #     destination_port = header[2:4]
-    #     size_of_data = header[4:6]
-    #     window_size = header[6:8]
-    #     seq_num = header[8:12]
-    #     ack_num = header[12:16]
-    #     message_size = header[16:]
-        
-    #     with open("client_log.txt", "a") as file:
-    #         file.write(f"source_port: {source_port}\n" +
-    #                     "destination_port: {destination_port}\n" +
-    #                     "size_of_data: {size_of_data}\n" +
-    #                     "window_size: {window_size}\n" +
-    #                     "seq_num: {seq_num}\n" +
-    #                     "ack_num: {ack_num}\n" +
-    #                     "message_size: {message_size}\n")
-
-    def receive_data(self, sock):
-        header, address = sock.recvfrom(20)
-        # if not header:
-        #     return None
-
-        # if data_size is greater than 0, this is a data packet from client to server,
-        # otherwise, the packet is an acknowledgement
-
-        source_port = header[:2]
-        destination_port = header[2:4]
-        size_of_data = header[4:6]
-        window_size = header[6:8]
-        seq_num = header[8:12]
-        ack_num = header[12:16]
-        message_size = header[16:]
-
-        # Decoding the header details
-        source_port = self.decode(source_port, "big-endian")
-        destination_port = self.decode(destination_port, "big-endian")
-        size_of_data = self.decode(size_of_data, "big-endian")
-        window_size = self.decode(window_size, "big-endian")
-        seq_num = self.decode(seq_num, "big-endian")
-        ack_num = self.decode(ack_num, "big-endian")
-        message_size = self.decode(message_size, "big-endian")
-
-        print(source_port, destination_port, size_of_data, window_size, seq_num, ack_num, message_size, sep=" ")
-
-        # data_size = int.from_bytes(header[4:6], "big")
-        print("data size = ", size_of_data)
-        if size_of_data > 0:
-            print("received data packet")
-            payload, address = sock.recvfrom(1004)
-            return header + payload, address
-        else:
-            print("received flag packet")
-            return header, address
+    def thread_delay_packet(self):
+        while self.proxy_closing is False:
+            if len(self.buffered_packets) > 0:
+                if self.buffered_packets[0].time_to_send <= time.time():
+                    
+                    packet = self.buffered_packets.pop(0)
+                    try:
+                        if packet.destination == "client":
+                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as proxy_sock_client:
+                                proxy_sock_client.sendto(packet.packet, (CLIENT_IP_ADDRESS, CLIENT_PORT))
+                                print("Sent delayed packet to client")
+                        else:
+                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as proxy_sock_server:
+                                proxy_sock_server.sendto(packet.packet, (SERVER_IP_ADDRESS, SERVER_PORT))
+                                print("Sent delayed packet to server")
+                    except Exception as e:
+                        break
+            else:
+                time.sleep(0.01)
 
     def print_header(self, header):
         source_port = header[:2]
@@ -184,12 +151,12 @@ class Proxy:
                         if sock == proxy_sock_client:
                             data, client_address = sock.recvfrom(1024)
                             print("Received data from client")
-                            # if random.random() <= self.drop_percentage:
-                            #     print("Dropped packet going to server")
-                            #     continue
-                            # if random.random() <= self.delay_percentage:
-                            #     print("Delayed packet going to server")
-                            #     self.buffered_packets.append(BufferedPacket(self.delay_percentage, data, "server"))
+                            if random.random() <= self.drop_percentage:
+                                print("Dropped packet going to server")
+                                continue
+                            if random.random() <= self.delay_percentage:
+                                print("Delayed packet going to server")
+                                self.buffered_packets.append(BufferedPacket(time.time() + DELAY_TIME, data, "server"))
                             try:
                                 sock.sendto(data, (SERVER_IP_ADDRESS, SERVER_PORT))
                                 print("Sent data to server")
@@ -199,12 +166,12 @@ class Proxy:
                         elif sock == proxy_sock_server:
                             header, server_address = sock.recvfrom(20)
                             print("Received ack from server")
-                            # if random.random() <= self.drop_percentage:
-                            #     print("Dropped packet going to client")
-                            #     continue
-                            # if random.random() <= self.delay_percentage:
-                            #     print("Delayed packet going to client")
-                            #     self.buffered_packets.append(BufferedPacket(self.delay_percentage, data, "client"))
+                            if random.random() <= self.drop_percentage:
+                                print("Dropped packet going to client")
+                                continue
+                            if random.random() <= self.delay_percentage:
+                                print("Delayed packet going to client")
+                                self.buffered_packets.append(BufferedPacket(self.delay_percentage, data, "client"))
                             try:
                                 sock.sendto(header, (CLIENT_IP_ADDRESS, CLIENT_PORT))
                                 print("Sent ack to client")
@@ -213,9 +180,13 @@ class Proxy:
                                 raise("Exception sending ack to client")
                             
             except KeyboardInterrupt:
+                self.proxy_closing = True
+                time.sleep(1)
                 print("Proxy shutting down...")
                 
             except Exception as e:
+                self.proxy_closing = True
+                time.sleep(1)
                 print(e)
                 print("Proxy shutting down...")
                 
