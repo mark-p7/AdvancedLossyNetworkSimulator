@@ -9,8 +9,9 @@ SRC_IP_ADDRESS = sys.argv[1]
 SRC_PORT = int(sys.argv[2])
 DST_IP_ADDRESS = sys.argv[3]
 DST_PORT = int(sys.argv[4])
-SERVER_TIMEOUT = 1
+SERVER_TIMEOUT = 0.5
 STATIC_SEQ = 0
+RESERVED_ACK = 4294967295
 
 class Server:
     
@@ -25,6 +26,7 @@ class Server:
         self.seq = 0
         self.full_message_size = 0
         self.check_args()
+        self.closing_connection = False
     
     # Validate the IP address
     # TODO: Make the ip_address_family a class variable so that server can create a socket with the correct IP address family passed in
@@ -68,21 +70,19 @@ class Server:
     
     # Decapsulate the packet payload from the header
     def decapsulate(self, data: bytes):
-        print("Decapsulating...")
-        if data is None:
-            print("No data to decapsulate")
+        
+        # if data is None:
+        #     print("No data to decapsulate")
+        
         # Header is 20 bytes long. 2 bytes for source port, 2 bytes for destination port, 2 bytes for size of data, 2 bytes for window size, 4 bytes for sequence number, 4 bytes for ack number, and 4 bytes for message size
         header = data[:20]
         payload = data[20:]
         return header, payload
     
     def extract_header_details(self, header: bytes):
-        # Logging
-        print("Extracting header details...")
-        
         # Check if header is None
-        if header is None:
-            print("No header to extract")
+        # if header is None:
+        #     print("No header to extract")
             
         # Extracting the header details
         # Header is 20 bytes long. 2 bytes for source port, 2 bytes for destination port, 2 bytes for size of data, 2 bytes for window size, 4 bytes for sequence number, 4 bytes for ack number, and 4 bytes for message size
@@ -129,6 +129,14 @@ class Server:
         self.packets = []
         self.seq_numbers = []
         self.decoded_packets = {}
+        
+    # Hard reset the server
+    def hard_reset_server(self):
+        self.packets = []
+        self.seq_numbers = []
+        self.decoded_packets = {}
+        self.decoded_message = b""
+        self.full_message_size = 0
     
     # Create the header
     def create_header(self, source_port: int, destination_port: int, size_of_data: int, window_size: int, seq_num: int, ack_num: int, message_size: int):
@@ -138,78 +146,104 @@ class Server:
                   + message_size.to_bytes(4, "big"))
         return header
     
+    # Print the full message to stdout
+    def print_full_message(self):
+        decoded_message = self.decoded_message.decode("utf-8")
+        print(decoded_message, end="")
+    
     def start_server(self):
         
         # Create the server socket
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_sock:
-            # Bind Socket
-            server_sock.bind((SRC_IP_ADDRESS, SRC_PORT))
             
-            # Logging
-            print("Server is listening...")
-            
-            # While the server is running
-            while True:
+            try:
+                # Bind Socket
+                server_sock.bind((SRC_IP_ADDRESS, SRC_PORT))
                 
-                # Try to receive data from the client through the proxy or client
-                try:
-                    
-                    # Receive data from the client through the proxy or client
-                    data, addr = server_sock.recvfrom(1024)
-                    
-                    # Add the data to the packets list
-                    self.packets.append(data)
-                    
-                    # If the server socket is not set to timeout, set it to timeout
-                    if server_sock.gettimeout() is None:
-                        server_sock.settimeout(SERVER_TIMEOUT)
+                # Logging
+                # print("Server is listening...")
                 
-                # When the server times out
-                except socket.timeout:
+                # While the server is running
+                while True:
                     
-                    # Read the data and send an ACK back to the client through the proxy or client
-                    for i in range(0, len(self.packets)):
-                        self.decode_packet(self.packets[i])
+                    # Try to receive data from the client through the proxy or client
+                    try:
+                        # If the server is closing the connection, we can assume that the client may have already closed the connection
+                        if self.closing_connection is True and server_sock.gettimeout() is None:
+                            server_sock.settimeout(SERVER_TIMEOUT)
+                            
+                        # Receive data from the client through the proxy or client
+                        data, addr = server_sock.recvfrom(1024)
+                        
+                        # Add the data to the packets list
+                        self.packets.append(data)
+                        
+                        # If the server socket is not set to timeout, set it to timeout
+                        if server_sock.gettimeout() is None:
+                            server_sock.settimeout(SERVER_TIMEOUT)
                     
-                    # Get the sequence numbers from the decoded packets in order
-                    seq_nums = list(self.decoded_packets.keys())
-                    seq_nums.sort()
-                    
-                    # Send ACK back to the client through the proxy or client
-                    ack_num = self.ack
-                    for i in range(0, len(seq_nums)):
-                        if seq_nums[i] == ack_num:
-                            print(f"seq_num: {seq_nums[i]}")
-                            ack_num += 1
-                            self.decoded_message += self.decoded_packets[seq_nums[i]]["payload"]
-                        else:
-                            self.soft_reset_server()
+                    # When the server times out
+                    except socket.timeout:
+                        
+                        # Assumed that the client has closed the connection, so we can close the server
+                        if self.closing_connection is True:
                             break
-                    
-                    # TODO: Clarify if the server can take the client/proxy IP address from the command line.
-                    if self.ack != ack_num:
+                        
+                        # Read the data and send an ACK back to the client through the proxy or client
+                        for i in range(0, len(self.packets)):
+                            self.decode_packet(self.packets[i])
+                        
+                        # Get the sequence numbers from the decoded packets in order
+                        seq_nums = list(self.decoded_packets.keys())
+                        seq_nums.sort()
+                                            
+                        # Send ACK back to the client through the proxy or client
+                        ack_num = self.ack
+                        for i in range(0, len(seq_nums)):
+                            if seq_nums[i] == RESERVED_ACK:
+                                ack_num = RESERVED_ACK
+                                self.closing_connection = True
+                            elif seq_nums[i] == ack_num:
+                                # print(f"seq_num: {seq_nums[i]}, ack_num: {ack_num}")
+                                ack_num += 1
+                                self.decoded_message += self.decoded_packets[seq_nums[i]]["payload"]
+                            else:
+                                self.soft_reset_server()
+                                break
+                        
+                        # TODO: Clarify if the server can take the client/proxy IP address from the command line.                        
                         self.ack = ack_num
                         header = self.create_header(SRC_PORT, self.destination_port, 0, 1, ack_num, 0, 0)
                         packet = header + b""
-                        server_sock.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
-                        print("sent to ", DST_IP_ADDRESS, ":", DST_PORT)
-                    
-                    # Check if the full message has been received
-                    # TODO: Make ACK accurate to the data received so that we can change the >= operator to ==
-                    # Right now the ACK also counts the extra padding that is added to the last packet
-                    # The decoded_message also counts the extra padding that is added to the last packet
-                    print(self.ack * 1004)
-                    print(self.full_message_size)
-                    if self.ack * 1004 >= self.full_message_size:
-                        print("Full message received")
-                        break
-            
-            # Print the full message
-            print("Printing full message...")
-            with open('output.txt', 'a') as sys.stdout:
-                print(self.decoded_message.decode("utf-8"), end="")
-
-
+                        
+                        # Log the ACK
+                        with open ("server_log.txt", "a") as f:
+                            f.write(f"Sending ACK to client\n")
+                            f.write(f"ACK: {ack_num}\n")
+                        
+                        try:
+                            # Send the ACK to the client through the proxy or client
+                            server_sock.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
+                        except Exception as e:
+                            raise Exception("Connection Closed")
+                        
+                        # Check if the full message has been received
+                        # TODO: Make ACK accurate to the data received so that we can change the >= operator to ==
+                        # Right now the ACK also counts the extra padding that is added to the last packet
+                        # The decoded_message also counts the extra padding that is added to the last packet
+                        # print(f"ACK: {self.ack}")
+                        # print(f"Full message size: {self.full_message_size}")
+                        if self.ack * 1004 >= self.full_message_size:
+                            # print("Full message received")
+                            self.print_full_message()
+                            self.hard_reset_server()
+                            server_sock.settimeout(None)
+                 
+            except KeyboardInterrupt:
+                pass
+            except Exception as e:
+                pass
+                
 if __name__ == "__main__":
     server = Server()
     server.start_server()
