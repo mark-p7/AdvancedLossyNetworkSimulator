@@ -184,7 +184,7 @@ class Client:
             return None
         
         # Extract ACK number from header
-        ack_num = int.from_bytes(packet[8:12], "big")
+        ack_num = int.from_bytes(packet[12:16], "big")
 
         # Close connection if termination ACK received
         if ack_num == RESERVED_SEQ:
@@ -224,14 +224,16 @@ class Client:
                         
                         while True:
                             ack_num = self.receive_ack()
-                            
+                            print(f"Received ACK: {ack_num}")
                             # Check if the ACK received accounts for all packets in the current window
+                            print(f"Old Window base is: {self.window_base}")
+                            print(f"New Ack num is: {ack_num}")
                             if ack_num >= self.window_base:
                                 self.slide_window(ack_num)
                                 break
                             
                             # Log window base
-                            print(f"Window base is now: {self.window_base}")
+                            print(f"New Window base is: {self.window_base}")
                             
                     # If timeout occurs, resend all packets in the current window
                     except socket.timeout:
