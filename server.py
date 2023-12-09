@@ -1,14 +1,12 @@
 import socket
+import threading
 import time
 import sys
 from ipaddress import ip_address, IPv4Address, IPv6Address
-import os
 
 MAX_MESSAGE_SIZE = 4294967295
 SRC_IP_ADDRESS = sys.argv[1]
 SRC_PORT = int(sys.argv[2])
-DST_IP_ADDRESS = sys.argv[3]
-DST_PORT = int(sys.argv[4])
 SERVER_TIMEOUT = 0.5
 STATIC_SEQ = 0
 RESERVED_ACK = 4294967295
@@ -17,7 +15,7 @@ class Server:
     
     # Initialize the server
     def __init__(self) -> None:
-        self.destination_port = 0
+        # Protocol variables
         self.packets = []
         self.decoded_packets = {}
         self.decoded_message = b""
@@ -25,8 +23,38 @@ class Server:
         self.ack = 0
         self.seq = 0
         self.full_message_size = 0
+        
+        # Server variables
         self.check_args()
         self.closing_connection = False
+        self.destination_ip_address = None
+        self.destination_port = None
+        
+        # GUI variables
+        self.start_time = time.time()
+        threading.Thread(target=self.log).start()
+        self.packets_sent = 0
+        self.packets_received = 0
+        
+    def log(self):
+        gui_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            gui_socket.connect(("10.2.121.144", 7786))
+        except Exception as e:
+            print(e)
+            gui_socket.close()
+            return
+        while self.closing_connection is False:
+            try:
+                packets_sent = int(self.packets_sent).to_bytes(4, "big")
+                packets_received = int(self.packets_received).to_bytes(4, "big")
+                current_time = int(time.time() - self.start_time).to_bytes(4, "big")
+                gui_socket.send(b"" + packets_sent + packets_received + current_time)
+                time.sleep(0.5)
+            except Exception as e:
+                break
+        gui_socket.close()
+        time.sleep(1)
     
     # Validate the IP address
     # TODO: Make the ip_address_family a class variable so that server can create a socket with the correct IP address family passed in
@@ -44,18 +72,18 @@ class Server:
 
     # Check the arguments
     def check_args(self):
-        if len(sys.argv) != 5:
+        if len(sys.argv) != 3:
             print(
-                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port> <destination ipv4_addr or ipv6_addr> <destination port>"
+                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port>"
             )
             sys.exit(1)
-        if self.validate_ip(sys.argv[1]) is False or self.validate_ip(sys.argv[3]) is False:
+        if self.validate_ip(sys.argv[1]) is False:
             print("Invalid IP address")
             sys.exit(1)
-        if sys.argv[2].isnumeric() is False or sys.argv[4].isnumeric() is False:
+        if sys.argv[2].isnumeric() is False:
             print("Port number must be numeric")
             sys.exit(1)
-        if (int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535) or (int(sys.argv[4]) < 1024) or (int(sys.argv[4]) > 65535):
+        if (int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535):
             print("Port number must be between 1024 and 65535")
             sys.exit(1)
             
@@ -70,20 +98,12 @@ class Server:
     
     # Decapsulate the packet payload from the header
     def decapsulate(self, data: bytes):
-        
-        # if data is None:
-        #     print("No data to decapsulate")
-        
         # Header is 20 bytes long. 2 bytes for source port, 2 bytes for destination port, 2 bytes for size of data, 2 bytes for window size, 4 bytes for sequence number, 4 bytes for ack number, and 4 bytes for message size
         header = data[:20]
         payload = data[20:]
         return header, payload
     
     def extract_header_details(self, header: bytes):
-        # Check if header is None
-        # if header is None:
-        #     print("No header to extract")
-            
         # Extracting the header details
         # Header is 20 bytes long. 2 bytes for source port, 2 bytes for destination port, 2 bytes for size of data, 2 bytes for window size, 4 bytes for sequence number, 4 bytes for ack number, and 4 bytes for message size
         source_port = header[:2]
@@ -121,7 +141,6 @@ class Server:
         # If the sequence number is not in the sequence numbers list, add it to the list and decode the packet
         if seq_num not in self.seq_numbers:
             self.seq_numbers.append(seq_num)
-            self.destination_port = source_port
             self.decoded_packets[seq_num] = { "destination_port": destination_port, "size_of_data": size_of_data, "window_size": window_size, "seq_num": seq_num, "ack_num": ack_num, "payload": payload}
     
     # Soft reset the server
@@ -160,9 +179,6 @@ class Server:
                 # Bind Socket
                 server_sock.bind((SRC_IP_ADDRESS, SRC_PORT))
                 
-                # Logging
-                # print("Server is listening...")
-                
                 # While the server is running
                 while True:
                     
@@ -174,6 +190,17 @@ class Server:
                             
                         # Receive data from the client through the proxy or client
                         data, addr = server_sock.recvfrom(1024)
+                        
+                        # Set the destination IP address and port from the packet received
+                        if self.destination_ip_address == None and self.destination_port == None:
+                            self.destination_ip_address = addr[0]
+                            self.destination_port = self.decode(data[0:2], "big-endian")
+                            with open ("server_log.txt", "a") as f:
+                                f.write(f"Destination IP Address: {self.destination_ip_address}\n")
+                                f.write(f"Destination Port: {self.destination_port}\n")
+                        
+                        # Increment the number of packets received
+                        self.packets_received += 1
                         
                         # Add the data to the packets list
                         self.packets.append(data)
@@ -204,14 +231,12 @@ class Server:
                                 ack_num = RESERVED_ACK
                                 self.closing_connection = True
                             elif seq_nums[i] == ack_num:
-                                # print(f"seq_num: {seq_nums[i]}, ack_num: {ack_num}")
                                 ack_num += 1
                                 self.decoded_message += self.decoded_packets[seq_nums[i]]["payload"]
                             else:
                                 self.soft_reset_server()
                                 break
-                        
-                        # TODO: Clarify if the server can take the client/proxy IP address from the command line.                        
+                                            
                         self.ack = ack_num
                         header = self.create_header(SRC_PORT, self.destination_port, 0, 1, 0, ack_num, 0)
                         packet = header + b""
@@ -223,18 +248,14 @@ class Server:
                         
                         try:
                             # Send the ACK to the client through the proxy or client
-                            server_sock.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
+                            server_sock.sendto(packet, (self.destination_ip_address, self.destination_port))
+                            # Increment the number of packets sent
+                            self.packets_sent += 1
                         except Exception as e:
                             raise Exception("Connection Closed")
                         
                         # Check if the full message has been received
-                        # TODO: Make ACK accurate to the data received so that we can change the >= operator to ==
-                        # Right now the ACK also counts the extra padding that is added to the last packet
-                        # The decoded_message also counts the extra padding that is added to the last packet
-                        # print(f"ACK: {self.ack}")
-                        # print(f"Full message size: {self.full_message_size}")
                         if self.ack * 1004 >= self.full_message_size:
-                            # print("Full message received")
                             self.print_full_message()
                             self.hard_reset_server()
                             server_sock.settimeout(None)
@@ -242,6 +263,7 @@ class Server:
             except KeyboardInterrupt:
                 pass
             except Exception as e:
+                print(e)
                 pass
                 
 if __name__ == "__main__":
