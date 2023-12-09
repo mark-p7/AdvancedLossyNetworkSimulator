@@ -1,98 +1,194 @@
+Destination IP Address: 10.2.121.144
+Destination Port: 8889
 Sending ACK to client
 ACK: 2
 Sending ACK to client
-ACK: 4294967295
+ACK: 2
 Sending ACK to client
 ACK: 2
 Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
 ACK: 2
 Sending ACK to client
-ACK: 4294967295
+ACK: 5
 Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 3
-Sending ACK to client
-ACK: 4
+ACK: 5
 Sending ACK to client
 ACK: 5
 Sending ACK to client
 ACK: 6
 Sending ACK to client
-ACK: 7
+ACK: 6
 Sending ACK to client
 ACK: 8
 Sending ACK to client
-ACK: 9
+ACK: 8
+Sending ACK to client
+ACK: 8
 Sending ACK to client
 ACK: 10
 Sending ACK to client
+ACK: 10
+Sending ACK to client
+ACK: 13
+Sending ACK to client
+ACK: 13
+Sending ACK to client
+ACK: 16
+Sending ACK to client
+ACK: 16
+Sending ACK to client
+ACK: 16
+Sending ACK to client
+ACK: 17
+Sending ACK to client
+ACK: 17
+Sending ACK to client
+ACK: 17
+Sending ACK to client
+ACK: 20
+Sending ACK to client
+ACK: 20
+Sending ACK to client
+ACK: 23
+Sending ACK to client
+ACK: 23
+Sending ACK to client
+ACK: 23
+Sending ACK to client
+ACK: 23
+Sending ACK to client
+ACK: 25
+Sending ACK to client
+ACK: 25
+Sending ACK to client
+ACK: 26
+Sending ACK to client
+ACK: 29
+Sending ACK to client
+ACK: 29
+Sending ACK to client
+ACK: 31
+Sending ACK to client
+ACK: 31
+Sending ACK to client
+ACK: 32
+Sending ACK to client
+ACK: 32
+Sending ACK to client
+ACK: 33
+Sending ACK to client
+ACK: 36
+Sending ACK to client
+ACK: 36
+Sending ACK to client
+ACK: 36
+Sending ACK to client
+ACK: 39
+Sending ACK to client
+ACK: 39
+Sending ACK to client
+ACK: 39
+Sending ACK to client
+ACK: 39
+Sending ACK to client
+ACK: 39
+Sending ACK to client
+ACK: 39
+Sending ACK to client
+ACK: 42
+Sending ACK to client
+ACK: 42
+Sending ACK to client
+ACK: 45
+Sending ACK to client
+ACK: 45
+Sending ACK to client
+ACK: 45
+Sending ACK to client
+ACK: 45
+Sending ACK to client
+ACK: 45
+Sending ACK to client
+ACK: 45
+Sending ACK to client
+ACK: 45
+Sending ACK to client
+ACK: 46
+Sending ACK to client
+ACK: 46
+Sending ACK to client
+ACK: 49
+Sending ACK to client
+ACK: 49
+Sending ACK to client
+ACK: 52
+Sending ACK to client
+ACK: 52
+Sending ACK to client
+ACK: 52
+Sending ACK to client
+ACK: 55
+Sending ACK to client
+ACK: 55
+Sending ACK to client
+ACK: 55
+Sending ACK to client
+ACK: 58
+Sending ACK to client
+ACK: 58
+Sending ACK to client
+ACK: 60
+Sending ACK to client
+ACK: 60
+Sending ACK to client
+ACK: 60
+Sending ACK to client
+ACK: 60
+Sending ACK to client
+ACK: 63
+Sending ACK to client
+ACK: 63
+Sending ACK to client
+ACK: 66
+Sending ACK to client
+ACK: 66
+Sending ACK to client
+ACK: 69
+Sending ACK to client
+ACK: 69
+Sending ACK to client
+ACK: 69
+Sending ACK to client
+ACK: 71
+Sending ACK to client
+ACK: 71
+Sending ACK to client
+ACK: 72
+Sending ACK to client
+ACK: 72
+Sending ACK to client
+ACK: 75
+Sending ACK to client
+ACK: 75
+Sending ACK to client
+ACK: 75
+Sending ACK to client
+ACK: 78
+Sending ACK to client
+ACK: 78
+Sending ACK to client
+ACK: 79
+Sending ACK to client
+ACK: 79
+Sending ACK to client
+ACK: 82
+Sending ACK to client
+ACK: 82
+Sending ACK to client
+ACK: 85
+Sending ACK to client
+ACK: 85
+Sending ACK to client
+ACK: 85
+Sending ACK to client
 ACK: 4294967295
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 2
-Sending ACK to client
-ACK: 1
-Sending ACK to client
-ACK: 2
