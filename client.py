@@ -1,9 +1,8 @@
 import socket
+import threading
 import time
 import sys
 from ipaddress import ip_address, IPv4Address, IPv6Address
-import os
-import fileinput
 
 MAX_MESSAGE_SIZE = 4294967295
 SRC_IP_ADDRESS = sys.argv[1]
@@ -11,10 +10,12 @@ SRC_PORT = sys.argv[2]
 DST_IP_ADDRESS = sys.argv[3]
 DST_PORT = sys.argv[4]
 CLIENT_TIMEOUT = 1
-MAX_WINDOW_SIZE = 2
+MAX_WINDOW_SIZE = 3
 STATIC_ACK = 0
 RESERVED_SEQ = 4294967295
-MAX_TERMINATION_REQUESTS = 20
+MAX_TERMINATION_REQUESTS = 15
+MAX_TIMEOUT_REQUESTS = 15
+RESERVED_PACKETS_SENT = 4294967295
 
 class Client:
     
@@ -22,8 +23,7 @@ class Client:
         self.ip_address_family = ""
         self.check_args()
         self.client_socket = socket.socket()
-        self.receiving_socket = socket.socket()
-        self.timeout = 0
+        self.timeout_requests = 0
         self.user_input = ""
         self.window_base = 0
         self.ack_num = 0
@@ -35,6 +35,36 @@ class Client:
         self.full_message_size = 0
         self.completed_chunks_size = 0
         self.connection_closed = False
+        
+        # GUI variables
+        self.start_time = time.time()
+        threading.Thread(target=self.log).start()
+        self.packets_sent = 0
+        self.packets_received = 0
+
+    def log(self):
+        gui_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            gui_socket.connect(("10.2.121.144", 7785))
+        except Exception as e:
+            return
+        gui_socket_open = True
+        while self.connection_closed is False:
+            try:
+                packets_sent = int(self.packets_sent).to_bytes(4, "big")
+                packets_received = int(self.packets_received).to_bytes(4, "big")
+                current_time = int(time.time() - self.start_time).to_bytes(4, "big")
+                gui_socket.send(b"" + packets_sent + packets_received + current_time)
+                time.sleep(0.5)
+            except Exception as e:
+                print("GUI disconnected")
+                gui_socket_open = False
+                break
+        if gui_socket_open is True:
+            gui_socket.send(b"" + RESERVED_PACKETS_SENT.to_bytes(4, "big") + (0).to_bytes(4, "big") + (0).to_bytes(4, "big"))
+        time.sleep(0.2)
+        gui_socket.close()
+        time.sleep(1)
     
     def validate_ip(self, ip: str):
         try:
@@ -78,10 +108,6 @@ class Client:
     def stop_timeout(self):
         self.client_socket.settimeout(None)
     
-    def wait_for_timeout(self):
-        while time.time() - self.timeout < CLIENT_TIMEOUT:
-            pass
-    
     def take_user_input(self):
         for line in sys.stdin:
             self.user_input += line
@@ -114,6 +140,10 @@ class Client:
         print(f"Packet sequence number is {seq_num}")
         # Send packet
         self.client_socket.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
+        # Increment packets sent
+        self.packets_sent += 1
+        # Increment current requests
+        self.timeout_requests += 1
         # Log packet sent
         print(f"Client sent chunk with seq num {seq_num}")
     
@@ -158,16 +188,16 @@ class Client:
         while self.connection_closed is False:
             try:
                 self.client_socket.sendto(packet, (DST_IP_ADDRESS, int(DST_PORT)))
+                self.packets_sent += 1
                 self.receive_ack()
             except socket.timeout:
                 termination_requests += 1
                 # We can assume that the server has terminated the connection if we have sent over 20 termination requests with no response
                 if termination_requests == MAX_TERMINATION_REQUESTS:
                     self.connection_closed = True
-                pass
         print("Connection terminated")
         self.client_socket.close()
-        time.sleep(1)
+        time.sleep(3)
         sys.exit(1)
         
     def receive_ack(self):
@@ -179,6 +209,9 @@ class Client:
         
         # Stop timeout
         self.stop_timeout()
+        
+        # Increment packets received
+        self.packets_received += 1
         
         if packet is None:
             return None
@@ -213,11 +246,6 @@ class Client:
                             
                         # For each chunk in the current window
                         for i in range(self.window_base, self.window_base + MAX_WINDOW_SIZE):
-                            # Check if we have reached the end of the message (the last chunk has been sent from the current window)
-                            # print(f"i is {i}")
-                            # print(f"completed chunks size is {self.completed_chunks_size}")
-                            # print(f"len of chunks is {len(self.chunks)}")
-                            # print(i - self.completed_chunks_size < len(self.chunks))
                             
                             if i - self.completed_chunks_size < len(self.chunks):
                                 self.send_data(i)
@@ -229,6 +257,7 @@ class Client:
                             print(f"Old Window base is: {self.window_base}")
                             print(f"New Ack num is: {ack_num}")
                             if ack_num >= self.window_base:
+                                self.timeout_requests = 0
                                 self.slide_window(ack_num)
                                 break
                             
@@ -237,6 +266,9 @@ class Client:
                             
                     # If timeout occurs, resend all packets in the current window
                     except socket.timeout:
+                        
+                        if self.timeout_requests > MAX_TIMEOUT_REQUESTS:
+                            raise Exception("Server not responding")
                         
                         # Log timeout
                         print("Timeout occurred")
@@ -258,10 +290,10 @@ class Client:
                 sys.exit(0)
             
         except Exception as e:
+            print(e)
             if self.connection_closed is False:
                 self.terminate_connection()
             else:
-                print(e)
                 self.client_socket.close()
                 time.sleep(1)
                 sys.exit(0)
