@@ -9,6 +9,8 @@ SRC_IP_ADDRESS = sys.argv[1]
 SRC_PORT = sys.argv[2]
 DST_IP_ADDRESS = sys.argv[3]
 DST_PORT = sys.argv[4]
+GUI_IP_ADDRESS = sys.argv[5]
+GUI_PORT = sys.argv[6]
 CLIENT_TIMEOUT = 1
 MAX_WINDOW_SIZE = 3
 STATIC_ACK = 0
@@ -20,8 +22,8 @@ RESERVED_PACKETS_SENT = 4294967295
 class Client:
     
     def __init__(self):
-        self.ip_address_family = ""
         self.check_args()
+        self.ip_address_family_recv = socket.AF_INET if isinstance(ip_address(str(SRC_IP_ADDRESS)), IPv4Address) else socket.AF_INET6
         self.client_socket = socket.socket()
         self.timeout_requests = 0
         self.user_input = ""
@@ -45,7 +47,7 @@ class Client:
     def log(self):
         gui_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            gui_socket.connect(("10.2.121.144", 7785))
+            gui_socket.connect((GUI_IP_ADDRESS, int(GUI_PORT)))
         except Exception as e:
             return
         gui_socket_open = True
@@ -69,34 +71,32 @@ class Client:
     def validate_ip(self, ip: str):
         try:
             ip = ip_address(str(sys.argv[1]))
-            if isinstance(ip, IPv4Address):
-                self.ip_address_family = socket.AF_INET
-            elif isinstance(ip, IPv6Address):
-                self.ip_address_family = socket.AF_INET6
+            if isinstance(ip, IPv4Address) or isinstance(ip, IPv6Address):
+                return True
             else:
                 return False
         except Exception as e:
             return False
             
     def check_args(self):
-        if len(sys.argv) != 5:
+        if len(sys.argv) != 7:
             print(
-                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port> <destination ipv4_addr or ipv6_addr> <destination port>"
+                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port> <destination ipv4_addr or ipv6_addr> <destination port> <gui ipv4_addr or ipv6_addr> <gui port>"
             )
             sys.exit(1)
-        if self.validate_ip(SRC_IP_ADDRESS) is False or self.validate_ip(DST_IP_ADDRESS) is False:
+        if self.validate_ip(SRC_IP_ADDRESS) is False or self.validate_ip(DST_IP_ADDRESS) is False or self.validate_ip(GUI_IP_ADDRESS) is False:
             print("Invalid IP address")
             sys.exit(1)
-        if SRC_PORT.isnumeric() is False or DST_PORT.isnumeric() is False:
+        if SRC_PORT.isnumeric() is False or DST_PORT.isnumeric() is False or GUI_PORT.isnumeric() is False:
             print("Port number must be numeric")
             sys.exit(1)
-        if (int(SRC_PORT) < 1024) or (int(SRC_PORT) > 65535) or (int(DST_PORT) < 1024) or (int(DST_PORT) > 65535):
+        if (int(SRC_PORT) < 1024) or (int(SRC_PORT) > 65535) or (int(DST_PORT) < 1024) or (int(DST_PORT) > 65535) or (int(GUI_PORT) < 1024) or (int(GUI_PORT) > 65535):
             print("Port number must be between 1024 and 65535")
             sys.exit(1)
 
     def create_client_socket(self):
         # Create the client socket
-        self.client_socket = socket.socket(self.ip_address_family, socket.SOCK_DGRAM)
+        self.client_socket = socket.socket(self.ip_address_family_recv, socket.SOCK_DGRAM)
     
     def bind_client_socket(self):
         # Set the client socket to 
