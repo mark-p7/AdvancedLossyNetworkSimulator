@@ -6,51 +6,13 @@ import random
 import threading
 
 SRC_IP_ADDRESS = sys.argv[1]
-PORT_LISTEN = int(sys.argv[2])
-PORT_SEND = int(sys.argv[3])
+PORT_LISTEN = sys.argv[2]
+PORT_SEND = sys.argv[3]
 SERVER_IP_ADDRESS = sys.argv[4]
-SERVER_PORT = int(sys.argv[5])
+SERVER_PORT = sys.argv[5]
+GUI_IP_ADDRESS = sys.argv[6]
+GUI_PORT = sys.argv[7]
 DELAY_TIME = 0.1
-
-def validate_ip(ip: str):
-    try:
-        ip = ip_address(str(sys.argv[1]))
-        if isinstance(ip, IPv4Address):
-            ip_address_family = "IPv4"
-        elif isinstance(ip, IPv6Address):
-            ip_address_family = "IPv6"
-        else:
-            return False
-    except Exception as e:
-        return False
-
-
-def check_args():
-    if len(sys.argv) != 6:
-        print(
-            "Usage: python3 proxy.py <source ipv4_addr or ipv6_addr> <source port>" +
-            "<server ipv4_addr or ipv6_addr> <server port>"
-        )
-        sys.exit(1)
-    if validate_ip(sys.argv[1]) is False or validate_ip(sys.argv[4]) is False:
-        print("Invalid IP address")
-        sys.exit(1)
-    if (sys.argv[2].isnumeric() is False or sys.argv[3].isnumeric() is False or sys.argv[5].isnumeric() is False):
-        print("Port number must be numeric")
-        sys.exit(1)
-    if (((int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535)
-         or (int(sys.argv[3]) < 1024) or (int(sys.argv[3]) > 65535)
-         or (int(sys.argv[5]) < 1024) or (int(sys.argv[5]) > 65535))):
-        print("Port number must be between 1024 and 65535")
-        sys.exit(1)
-        
-def check_user_input(drop_percentage, delay_percentage):
-    if drop_percentage.isnumeric() is False or delay_percentage.isnumeric() is False:
-        print("Percentage must be numeric")
-        sys.exit(1)
-    if int(drop_percentage) < 0 or int(drop_percentage) > 100 or int(delay_percentage) < 0 or int(delay_percentage) > 100:
-        print("Percentage must be between 0 and 100")
-        sys.exit(1)
     
 class BufferedPacket:
     def __init__(self, time_to_send, packet, destination):
@@ -63,20 +25,15 @@ class Proxy:
     def __init__(self):
         
         # Get user input
-        packet_drop_percentage = input("Enter packet drop percentage (example input for 60% -> 60): ")
-        packet_delay_percentage = input("Enter packet delay percentage: ")
-        ack_drop_percentage = input("Enter ack drop percentage: ")
-        ack_delay_percentage = input("Enter ack delay percentage: ")
+        self.change_user_input_helper()
         
-        # Check user input
-        check_user_input(packet_drop_percentage, packet_delay_percentage)
-        check_user_input(ack_drop_percentage, ack_delay_percentage)
-        
-        # Initialize user input class variables
-        self.packet_drop_percentage = int(packet_drop_percentage) / 100
-        self.packet_delay_percentage = int(packet_delay_percentage) / 100
-        self.ack_drop_percentage = int(ack_drop_percentage) / 100
-        self.ack_delay_percentage = int(ack_delay_percentage) / 100
+        # Check arguments then initialize ip addresses and ports
+        self.check_args()
+        self.proxy_ip_address_family = socket.AF_INET if isinstance(ip_address(str(SRC_IP_ADDRESS)), IPv4Address) else socket.AF_INET6
+        self.client_ip_address = None
+        self.client_port = None
+        self.server_ip_address = sys.argv[4]
+        self.server_port = int(sys.argv[5])
         
         # Initialize class variables
         self.buffered_packets: [BufferedPacket] = []
@@ -91,17 +48,42 @@ class Proxy:
         self.acks_delayed = 0
         self.acks_dropped = 0
         
-        # Check arguments then initialize ip addresses and ports
-        check_args()
-        self.client_ip_address = None
-        self.client_port = None
-        self.server_ip_address = sys.argv[4]
-        self.server_port = int(sys.argv[5])
+        # Dynamically change user input
+        threading.Thread(target=self.change_user_input).start()
+        
+    def change_user_input(self):
+        try:
+            while self.proxy_closing is False:
+                change = input("Would you like to change the packet drop and delay percentages? (y/n): ")
+                if change == "y":
+                    self.change_user_input_helper()
+                elif change == "n":
+                    break
+                else:
+                    print("Invalid input")
+        except KeyboardInterrupt:
+            pass
+        except Exception as e:
+            print(e)
+            pass
+        
+    def change_user_input_helper(self):
+        packet_drop_percentage = input("Enter packet drop percentage (example input for 60% -> 60): ")
+        packet_delay_percentage = input("Enter packet delay percentage: ")
+        ack_drop_percentage = input("Enter ack drop percentage: ")
+        ack_delay_percentage = input("Enter ack delay percentage: ")
+        self.check_user_input(packet_drop_percentage, packet_delay_percentage)
+        self.check_user_input(ack_drop_percentage, ack_delay_percentage)
+        self.packet_drop_percentage = int(packet_drop_percentage) / 100
+        self.packet_delay_percentage = int(packet_delay_percentage) / 100
+        self.ack_drop_percentage = int(ack_drop_percentage) / 100
+        self.ack_delay_percentage = int(ack_delay_percentage) / 100
     
     def log(self):
-        gui_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        gui_socket_ip_address_family = socket.AF_INET if isinstance(ip_address(str(GUI_IP_ADDRESS)), IPv4Address) else socket.AF_INET6
+        gui_socket = socket.socket(gui_socket_ip_address_family, socket.SOCK_STREAM)
         try:
-            gui_socket.connect(("10.2.121.144", 7787))
+            gui_socket.connect((GUI_IP_ADDRESS, int(GUI_PORT)))
         except Exception as e:
             print(e)
             return
@@ -119,6 +101,45 @@ class Proxy:
                 break
         gui_socket.close()
         time.sleep(1)
+        
+    def validate_ip(self, ip: str):
+        try:
+            ip = ip_address(str(sys.argv[1]))
+            if isinstance(ip, IPv4Address) or isinstance(ip, IPv6Address):
+                return True
+            else:
+                return False
+        except Exception as e:
+            return False
+
+    def check_args(self):
+        if len(sys.argv) != 8:
+            print(
+                "Usage: python3 proxy.py <source ipv4_addr or ipv6_addr> <source port>" +
+                "<server ipv4_addr or ipv6_addr> <server port>" + 
+                "<gui ipv4_addr or ipv6_addr> <gui port>"
+            )
+            sys.exit(1)
+        if self.validate_ip(sys.argv[1]) is False or self.validate_ip(sys.argv[4]) is False or self.validate_ip(sys.argv[6]) is False:
+            print("Invalid IP address")
+            sys.exit(1)
+        if (sys.argv[2].isnumeric() is False or sys.argv[3].isnumeric() is False or sys.argv[5].isnumeric() is False):
+            print("Port number must be numeric")
+            sys.exit(1)
+        if ((int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535)
+            or (int(sys.argv[3]) < 1024) or (int(sys.argv[3]) > 65535)
+            or (int(sys.argv[5]) < 1024) or (int(sys.argv[5]) > 65535)
+            or (int(sys.argv[7]) < 1024) or (int(sys.argv[7]) > 65535)):
+            print("Port number must be between 1024 and 65535")
+            sys.exit(1)
+            
+    def check_user_input(self, drop_percentage: str, delay_percentage: str):
+        if drop_percentage.isnumeric() is False or delay_percentage.isnumeric() is False:
+            # print("Percentage must be numeric")
+            sys.exit(1)
+        if int(drop_percentage) < 0 or int(drop_percentage) > 100 or int(delay_percentage) < 0 or int(delay_percentage) > 100:
+            # print("Percentage must be between 0 and 100")
+            sys.exit(1)
 
     def decode(self, data: bytes, data_type: str):
         if data_type == "utf-8":
@@ -129,7 +150,7 @@ class Proxy:
             assert False, "Unknown data type"
         
     def change_packet_source_port(self, packet: bytes):
-        packet = PORT_LISTEN.to_bytes(2, "big") + packet[2:]
+        packet = int(PORT_LISTEN).to_bytes(2, "big") + packet[2:]
         self.extract_packet_information(packet, "send")
         return packet
         
@@ -143,12 +164,13 @@ class Proxy:
                         if packet.destination == "client":
                             self.change_packet_source_port(packet.packet)
                             self.proxy_sock_send.sendto(packet.packet, (self.client_ip_address, self.client_port))
-                            print("Sent delayed packet to client")
+                            # print("Sent delayed packet to client")
                         else:
                             self.change_packet_source_port(packet.packet)
-                            self.proxy_sock_send.sendto(packet.packet, (SERVER_IP_ADDRESS, SERVER_PORT))
-                            print("Sent delayed packet to server")
+                            self.proxy_sock_send.sendto(packet.packet, (SERVER_IP_ADDRESS, self.server_port))
+                            # print("Sent delayed packet to server")
                     except Exception as e:
+                        print(e)
                         break
             else:
                 time.sleep(0.01)
@@ -190,12 +212,13 @@ class Proxy:
         return source_port, destination_port, size_of_data, window_size, seq_num, ack_num, message_size
 
     def start_proxy(self):
-        self.proxy_sock_recv =  socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.proxy_sock_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        print(self.proxy_ip_address_family)
+        self.proxy_sock_recv = socket.socket(self.proxy_ip_address_family, socket.SOCK_DGRAM)
+        self.proxy_sock_send = socket.socket(self.proxy_ip_address_family, socket.SOCK_DGRAM)
 
         try:
-            self.proxy_sock_recv.bind((SRC_IP_ADDRESS, PORT_LISTEN))
-            self.proxy_sock_send.bind((SRC_IP_ADDRESS, PORT_SEND))
+            self.proxy_sock_recv.bind((SRC_IP_ADDRESS, int(PORT_LISTEN)))
+            self.proxy_sock_send.bind((SRC_IP_ADDRESS, int(PORT_SEND)))
 
             print(f"Proxy is receiving packets on {SRC_IP_ADDRESS}:{PORT_LISTEN}...")
             print(f"Proxy is sending packets from {SRC_IP_ADDRESS}:{PORT_SEND}...")
@@ -207,27 +230,27 @@ class Proxy:
                 self.extract_packet_information(packet)
                 
                 # Log where the data came from
-                print(f"Received data from {addr}")
+                # print(f"Received data from {addr}")
                 
                 # If the packet came from the server, send it to the client
-                if addr[0] == SERVER_IP_ADDRESS and addr[1] == SERVER_PORT:
+                if addr[0] == SERVER_IP_ADDRESS and addr[1] == self.server_port:
                     
                     if random.random() <= self.ack_drop_percentage:
                         # Log what happened to the data
-                        print("Dropped packet going to client\n")
+                        # print("Dropped packet going to client\n")
                         # Drop the packet
                         self.acks_dropped += 1
                         continue
                     if random.random() <= self.ack_delay_percentage:
                         # Log what happened to the data
-                        print("Delayed packet going to client\n")
+                        # print("Delayed packet going to client\n")
                         # Add the packet to the delay buffer
                         self.buffered_packets.append(BufferedPacket(time.time() + DELAY_TIME, packet, "client"))
                         self.acks_delayed += 1
                         continue
                     try:
                         # Log what happened to the data
-                        print("Sent data to client\n")
+                        # print("Sent data to client\n")
                         # Change the source port of the packet to the proxy's port
                         self.proxy_sock_send.sendto(self.change_packet_source_port(packet), (self.client_ip_address, self.client_port))
                     except Exception as e:
@@ -240,26 +263,26 @@ class Proxy:
                     if self.client_ip_address is None:
                         self.client_ip_address = addr[0]
                         self.client_port = addr[1]
-                        print(f"Clients address: {addr}")
+                        # print(f"Clients address: {addr}")
                     
                     if random.random() <= self.packet_drop_percentage:
                         # Log what happened to the data
-                        print("Dropped packet going to server\n")
+                        # print("Dropped packet going to server\n")
                         # Drop the packet
                         self.packets_dropped += 1
                         continue
                     if random.random() <= self.packet_delay_percentage:
                         # Log what happened to the data
-                        print("Delayed packet going to server\n")
+                        # print("Delayed packet going to server\n")
                         # Add the packet to the delay buffer
                         self.buffered_packets.append(BufferedPacket(time.time() + DELAY_TIME, packet, "server"))
                         self.packets_delayed += 1
                         continue
                     try:
                         # Log what happened to the data
-                        print("Sent data to server\n")
+                        # print("Sent data to server\n")
                         # Change the source port of the packet to the proxy's port
-                        self.proxy_sock_send.sendto(self.change_packet_source_port(packet), (SERVER_IP_ADDRESS, SERVER_PORT))
+                        self.proxy_sock_send.sendto(self.change_packet_source_port(packet), (SERVER_IP_ADDRESS, self.server_port))
                     except Exception as e:
                         raise("Exception sending ack to client")
                 
