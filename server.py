@@ -6,7 +6,9 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 
 MAX_MESSAGE_SIZE = 4294967295
 SRC_IP_ADDRESS = sys.argv[1]
-SRC_PORT = int(sys.argv[2])
+SRC_PORT = sys.argv[2]
+GUI_IP_ADDRESS = sys.argv[3]
+GUI_PORT = sys.argv[4]
 SERVER_TIMEOUT = 0.5
 STATIC_SEQ = 0
 RESERVED_ACK = 4294967295
@@ -26,6 +28,7 @@ class Server:
         
         # Server variables
         self.check_args()
+        self.server_ip_address_family = socket.AF_INET if isinstance(ip_address(str(SRC_IP_ADDRESS)), IPv4Address) else socket.AF_INET6
         self.closing_connection = False
         self.destination_ip_address = None
         self.destination_port = None
@@ -39,9 +42,8 @@ class Server:
     def log(self):
         gui_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            gui_socket.connect(("10.2.121.144", 7786))
+            gui_socket.connect((GUI_IP_ADDRESS, int(GUI_PORT)))
         except Exception as e:
-            print(e)
             gui_socket.close()
             return
         while self.closing_connection is False:
@@ -57,14 +59,11 @@ class Server:
         time.sleep(1)
     
     # Validate the IP address
-    # TODO: Make the ip_address_family a class variable so that server can create a socket with the correct IP address family passed in
     def validate_ip(self, ip: str):
         try:
             ip = ip_address(str(sys.argv[1]))
-            if isinstance(ip, IPv4Address):
-                ip_address_family = "IPv4"
-            elif isinstance(ip, IPv6Address):
-                ip_address_family = "IPv6"
+            if isinstance(ip, IPv4Address) or isinstance(ip, IPv6Address):
+                return True
             else:
                 return False
         except Exception as e:
@@ -72,18 +71,18 @@ class Server:
 
     # Check the arguments
     def check_args(self):
-        if len(sys.argv) != 3:
+        if len(sys.argv) != 5:
             print(
-                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port>"
+                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port> <gui ipv4_addr or ipv6_addr> <gui port>"
             )
             sys.exit(1)
-        if self.validate_ip(sys.argv[1]) is False:
+        if self.validate_ip(sys.argv[1]) is False or self.validate_ip(sys.argv[3]) is False:
             print("Invalid IP address")
             sys.exit(1)
-        if sys.argv[2].isnumeric() is False:
+        if sys.argv[2].isnumeric() is False or sys.argv[4].isnumeric() is False:
             print("Port number must be numeric")
             sys.exit(1)
-        if (int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535):
+        if (int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535) or (int(sys.argv[4]) < 1024) or (int(sys.argv[4]) > 65535):
             print("Port number must be between 1024 and 65535")
             sys.exit(1)
             
@@ -173,11 +172,11 @@ class Server:
     def start_server(self):
         
         # Create the server socket
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_sock:
+        with socket.socket(self.server_ip_address_family, socket.SOCK_DGRAM) as server_sock:
             
             try:
                 # Bind Socket
-                server_sock.bind((SRC_IP_ADDRESS, SRC_PORT))
+                server_sock.bind((SRC_IP_ADDRESS, int(SRC_PORT)))
                 
                 # While the server is running
                 while True:
@@ -238,7 +237,7 @@ class Server:
                                 break
                                             
                         self.ack = ack_num
-                        header = self.create_header(SRC_PORT, self.destination_port, 0, 1, 0, ack_num, 0)
+                        header = self.create_header(int(SRC_PORT), self.destination_port, 0, 1, 0, ack_num, 0)
                         packet = header + b""
                         
                         # Log the ACK
