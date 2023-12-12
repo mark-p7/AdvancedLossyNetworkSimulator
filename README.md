@@ -14,15 +14,12 @@ Command to run client:
 
 Example runs:
 
-python3 client.py 142.58.214.160 8888 142.58.214.160 8889 
-python3 proxy.py 142.58.214.160 8889 7651 142.58.214.160 8080
-python3 server.py 142.58.214.160 8080
+Lab
 
-Library
-
-python3 client.py 10.2.121.144 8888 10.2.121.144 8889 
-python3 proxy.py 10.2.121.144 8889 7651 10.2.121.144 8080
-python3 server.py 10.2.121.144 8080
+python3 client.py 10.65.81.90 8888 10.65.81.90 8889 10.65.81.90 7771
+python3 server.py 10.65.81.90 8080 10.65.81.90 7772
+python3 proxy.py 10.65.81.90 8889 7651 10.65.81.90 8080 10.65.81.90 7773
+python3 gui.py 10.65.81.90 7771 7772 7773
 
 What to run in order:
 1. GUI
