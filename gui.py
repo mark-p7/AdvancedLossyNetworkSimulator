@@ -2,12 +2,18 @@ import socket
 import sys
 import threading
 import time
+from ipaddress import ip_address, IPv4Address, IPv6Address
 
 # Tkinter stuff
 import tkinter as tk
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+
+GUI_IP_ADDRESS = sys.argv[1]
+GUI_CLIENT_PORT = sys.argv[2]
+GUI_SERVER_PORT = sys.argv[3]
+GUI_PROXY_PORT = sys.argv[4]
 
 class GUI:
     def __init__(self):
@@ -23,7 +29,39 @@ class GUI:
         self.client_data = []
         self.server_data = []
         self.proxy_data = []
+        
+        # Check the arguments
+        self.check_args()
+
+    # Validate the IP address
+    def validate_ip(self, ip: str):
+        try:
+            ip = ip_address(str(sys.argv[1]))
+            if isinstance(ip, IPv4Address) or isinstance(ip, IPv6Address):
+                return True
+            else:
+                return False
+        except Exception as e:
+            return False
     
+    # Check the arguments
+    def check_args(self):
+        if len(sys.argv) != 5:
+            print(
+                "Usage: python3 server.py <source ipv4_addr or ipv6_addr> <source port> <gui ipv4_addr or ipv6_addr> <gui port>"
+            )
+            sys.exit(1)
+        if self.validate_ip(sys.argv[1]) is False:
+            print("Invalid IP address")
+            sys.exit(1)
+        if sys.argv[2].isnumeric() is False or sys.argv[3].isnumeric() is False or sys.argv[4].isnumeric() is False:
+            print("Port number must be numeric")
+            sys.exit(1)
+        if (int(sys.argv[2]) < 1024) or (int(sys.argv[2]) > 65535) or (int(sys.argv[3]) < 1024) or (int(sys.argv[3]) > 65535) or (int(sys.argv[4]) < 1024) or (int(sys.argv[4]) > 65535):
+            print("Port number must be between 1024 and 65535")
+            sys.exit(1)
+    
+    # Start the GUI
     def start_gui_graph(self):
         try:
             # Set up the Tkinter window
@@ -51,6 +89,7 @@ class GUI:
             root.destroy()
             return
     
+    # Update the graphs
     def update_graphs(self, axs, canvas, root):
         # Plotting the data
         self.plot_data(axs[0], self.client_data, 'Client Data')
@@ -81,6 +120,7 @@ class GUI:
         ax.set_title(title)
         ax.legend()
     
+    # Decode the data
     def decode(self, data: bytes, data_type: str):
         if data_type == "utf-8":
             return data.decode("utf-8")
@@ -89,6 +129,7 @@ class GUI:
         else:
             assert False, "Unknown data type"
     
+    # Decapsulate the data
     def decapsulate(self, data: bytes, program: str):
         
         if program == "Proxy":
@@ -106,6 +147,7 @@ class GUI:
         
         return packets_sent, packets_received, time
     
+    # Process the data
     def process_data(self, data: bytes, program: str):
         
         # Initialize variables
@@ -130,15 +172,25 @@ class GUI:
         
         # Append the data to the appropriate list
         if program == "Client":
+            if time == 0 and len(self.client_data) > 3:
+                self.connection_state = "CLOSED"
+                return
             self.client_data.append([packets_sent, packets_received, time])
         elif program == "Server":
+            if time == 0 and len(self.server_data) > 3:
+                self.connection_state = "CLOSED"
+                return
             self.server_data.append([packets_sent, packets_received, time])
         elif program == "Proxy":
+            if time == 0 and len(self.proxy_data) > 3:
+                self.connection_state = "CLOSED"
+                return
             self.proxy_data.append([packets_dropped, packets_delayed, acks_dropped, acks_delayed, time])
             
         # Print the data
         print(len(self.client_data), len(self.server_data), len(self.proxy_data))
 
+    # Start the GUI
     def start_gui(self):
         # Create sockets
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -146,9 +198,9 @@ class GUI:
         self.proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # Bind sockets
-        self.client_socket.bind(("10.2.121.144", 7785))
-        self.server_socket.bind(("10.2.121.144", 7786))
-        self.proxy_socket.bind(("10.2.121.144", 7787))
+        self.client_socket.bind((GUI_IP_ADDRESS, int(GUI_CLIENT_PORT)))
+        self.server_socket.bind((GUI_IP_ADDRESS, int(GUI_SERVER_PORT)))
+        self.proxy_socket.bind((GUI_IP_ADDRESS, int(GUI_PROXY_PORT)))
         
         self.connection_state = "OPEN"
         
@@ -168,6 +220,7 @@ class GUI:
         print("Sockets closed")
         sys.exit(0)
         
+    # Thread for the client socket
     def thread_client(self):
         self.client_socket.listen(1)
         conn, addr = self.client_socket.accept()
@@ -190,6 +243,7 @@ class GUI:
             self.client_socket.close()
         self.client_socket = None
     
+    # Thread for the server socket
     def thread_server(self):
         self.server_socket.listen(1)
         conn, addr = self.server_socket.accept()
@@ -200,18 +254,19 @@ class GUI:
                 conn.settimeout(None)
                 self.process_data(data, "Server")
             except socket.timeout:
-                    pass
+                pass
             except KeyboardInterrupt:
-                    self.connection_state = "CLOSED"
-            except Exception as e:
-                print(e)
                 self.connection_state = "CLOSED"
+            except Exception as e:
+                self.connection_state = "CLOSED"
+                print(e)
         if conn is not None:
             conn.close()
         if self.server_socket is not None:
             self.server_socket.close()
         self.server_socket = None
             
+    # Thread for the proxy socket
     def thread_proxy(self):
         self.proxy_socket.listen(1)
         conn, addr = self.proxy_socket.accept()
