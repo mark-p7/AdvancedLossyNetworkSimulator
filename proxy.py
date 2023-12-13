@@ -162,12 +162,10 @@ class Proxy:
                     packet: BufferedPacket = self.buffered_packets.pop(0)
                     try:
                         if packet.destination == "client":
-                            self.change_packet_source_port(packet.packet)
-                            self.proxy_sock_send.sendto(packet.packet, (self.client_ip_address, self.client_port))
+                            self.proxy_sock_send.sendto(self.change_packet_source_port(packet.packet), (self.client_ip_address, self.client_port))
                             # print("Sent delayed packet to client")
                         else:
-                            self.change_packet_source_port(packet.packet)
-                            self.proxy_sock_send.sendto(packet.packet, (SERVER_IP_ADDRESS, self.server_port))
+                            self.proxy_sock_send.sendto(self.change_packet_source_port(packet.packet), (SERVER_IP_ADDRESS, self.server_port))
                             # print("Sent delayed packet to server")
                     except Exception as e:
                         print(e)
@@ -212,7 +210,6 @@ class Proxy:
         return source_port, destination_port, size_of_data, window_size, seq_num, ack_num, message_size
 
     def start_proxy(self):
-        print(self.proxy_ip_address_family)
         self.proxy_sock_recv = socket.socket(self.proxy_ip_address_family, socket.SOCK_DGRAM)
         self.proxy_sock_send = socket.socket(self.proxy_ip_address_family, socket.SOCK_DGRAM)
 

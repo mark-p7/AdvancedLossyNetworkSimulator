@@ -193,9 +193,10 @@ class GUI:
     # Start the GUI
     def start_gui(self):
         # Create sockets
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ip_family = socket.AF_INET if isinstance(ip_address(str(GUI_IP_ADDRESS)), IPv4Address) else socket.AF_INET6
+        self.client_socket = socket.socket(ip_family, socket.SOCK_STREAM)
+        self.server_socket = socket.socket(ip_family, socket.SOCK_STREAM)
+        self.proxy_socket = socket.socket(ip_family, socket.SOCK_STREAM)
         
         # Bind sockets
         self.client_socket.bind((GUI_IP_ADDRESS, int(GUI_CLIENT_PORT)))
