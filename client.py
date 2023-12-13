@@ -106,10 +106,6 @@ class Client:
         
     def stop_timeout(self):
         self.client_socket.settimeout(None)
-    
-    def take_user_input(self):
-        for line in sys.stdin:
-            self.user_input += line
         
     def create_header(self, seq_num: int, ack_num: int):
         size_of_data = 0
@@ -233,8 +229,6 @@ class Client:
         # Bind the client socket to the source IP address and port
         self.bind_client_socket()
         
-        # # Take user input
-        # self.take_user_input()
         try:
             for line in sys.stdin:
                 self.process_data_to_send(line)
