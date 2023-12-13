@@ -23,7 +23,6 @@ class Server:
         self.decoded_message = b""
         self.seq_numbers = []
         self.ack = 0
-        self.seq = 0
         self.full_message_size = 0
         
         # Server variables
