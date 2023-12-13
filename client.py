@@ -28,7 +28,6 @@ class Client:
         self.timeout_requests = 0
         self.user_input = ""
         self.window_base = 0
-        self.ack_num = 0
         self.seq_num = 0
         self.full_chunks_size = 0
         self.chunks = []
