@@ -22,8 +22,10 @@ This project is a sophisticated network simulator that demonstrates the handling
 
 ### Installation
 Clone the repository:
-
-<code>git clone [repository URL]</code>
+<br>
+```
+git clone https://github.com/mark-p7/AdvancedLossyNetworkSimulator.git
+```
 
 ### Running the Application
 Order of execution is crucial for proper operation:
@@ -33,17 +35,20 @@ Order of execution is crucial for proper operation:
 ```
 python3 gui.py [IP] [Port1] [Port2] [Port3]
 ```
-1. **Start the Proxy:**
+
+2. **Start the Proxy:**
 <br>
 ```
 python3 proxy.py [Proxy IP] [Proxy Port] [Server Port] [Server IP] [GUI Port]
 ```
-1. **Start the Server:**
+
+3. **Start the Server:**
 <br>
 ```
 python3 server.py [Server IP] [Server Port] [GUI Port]
 ```
-1. **Start the Client:**
+
+4. **Start the Client:**
 <br>
 ```
 python3 client.py [Client IP] [Client Port] [Proxy Port] [GUI Port]
