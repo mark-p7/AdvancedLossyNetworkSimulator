@@ -68,8 +68,11 @@ class GUI:
             root = tk.Tk()
             root.title("Network Data Graphs")
 
-            # Create a figure for the plots
-            fig, axs = plt.subplots(3, 1, figsize=(6, 8))
+            # Create a figure for the plots with adjusted size
+            fig, axs = plt.subplots(3, 1, figsize=(8, 8))  # Adjust the figure size here
+
+            # Adjust layout and spacing
+            fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, hspace=1)  # Adjust the space between subplots
 
             # Adding the figure to the Tkinter window
             canvas = FigureCanvasTkAgg(fig, master=root)
@@ -88,7 +91,7 @@ class GUI:
             canvas_widget.destroy()
             root.destroy()
             return
-    
+
     # Update the graphs
     def update_graphs(self, axs, canvas, root):
         # Plotting the data
@@ -107,16 +110,21 @@ class GUI:
         ax.plot([x[4] for x in data], [x[2] for x in data], label="Acks Dropped")
         ax.plot([x[4] for x in data], [x[3] for x in data], label="Acks Delayed")
         ax.set_xlabel('Time')
-        ax.set_ylabel('Packets')
+        ax.set_ylabel('Packet/Ack')
         ax.set_title(title)
         ax.legend()
     
     def plot_data(self, ax, data, title):
+        xLabel = "Packets Sent"
+        yLabel = "Acks Received"
+        if (title == "Server Data"):
+            xLabel = "Acks Sent"
+            yLabel = "Packets Received"
         ax.clear()
-        ax.plot([x[2] for x in data], [x[0] for x in data], label="Packets Sent")
-        ax.plot([x[2] for x in data], [x[1] for x in data], label="Packets Received")
+        ax.plot([x[2] for x in data], [x[0] for x in data], label=xLabel)
+        ax.plot([x[2] for x in data], [x[1] for x in data], label=yLabel)
         ax.set_xlabel('Time')
-        ax.set_ylabel('Packets')
+        ax.set_ylabel('Packet/Ack')
         ax.set_title(title)
         ax.legend()
     

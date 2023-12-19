@@ -1,6 +1,72 @@
-Destination IP Address: 10.2.121.144
+Destination IP Address: 192.168.1.101
 Destination Port: 8889
 Sending ACK to client
+ACK: 0
+Sending ACK to client
+ACK: 0
+Sending ACK to client
+ACK: 2
+Sending ACK to client
+ACK: 2
+Sending ACK to client
+ACK: 2
+Sending ACK to client
+ACK: 2
+Sending ACK to client
+ACK: 2
+Sending ACK to client
+ACK: 3
+Sending ACK to client
+ACK: 3
+Sending ACK to client
+ACK: 3
+Sending ACK to client
+ACK: 3
+Sending ACK to client
+ACK: 3
+Sending ACK to client
+ACK: 5
+Sending ACK to client
+ACK: 5
+Sending ACK to client
+ACK: 6
+Sending ACK to client
+ACK: 6
+Sending ACK to client
+ACK: 9
+Sending ACK to client
+ACK: 9
+Sending ACK to client
+ACK: 9
+Sending ACK to client
+ACK: 11
+Sending ACK to client
+ACK: 11
+Sending ACK to client
+ACK: 12
+Sending ACK to client
+ACK: 12
+Sending ACK to client
+ACK: 12
+Sending ACK to client
+ACK: 12
+Sending ACK to client
+ACK: 14
+Sending ACK to client
+ACK: 14
+Sending ACK to client
+ACK: 14
+Sending ACK to client
+ACK: 4294967295
+Destination IP Address: 192.168.1.101
+Destination Port: 8889
+Sending ACK to client
+ACK: 0
+Sending ACK to client
+ACK: 2
+Sending ACK to client
+ACK: 2
+Sending ACK to client
 ACK: 2
 Sending ACK to client
 ACK: 2
@@ -19,65 +85,97 @@ ACK: 6
 Sending ACK to client
 ACK: 6
 Sending ACK to client
-ACK: 8
+ACK: 9
 Sending ACK to client
-ACK: 8
+ACK: 9
 Sending ACK to client
-ACK: 8
+ACK: 9
 Sending ACK to client
-ACK: 10
+ACK: 11
 Sending ACK to client
-ACK: 10
+ACK: 11
 Sending ACK to client
-ACK: 13
+ACK: 11
 Sending ACK to client
-ACK: 13
+ACK: 11
 Sending ACK to client
-ACK: 16
+ACK: 11
 Sending ACK to client
-ACK: 16
+ACK: 12
 Sending ACK to client
-ACK: 16
+ACK: 12
 Sending ACK to client
-ACK: 17
+ACK: 12
 Sending ACK to client
-ACK: 17
+ACK: 12
 Sending ACK to client
-ACK: 17
+ACK: 15
 Sending ACK to client
-ACK: 20
+ACK: 15
 Sending ACK to client
-ACK: 20
+ACK: 15
 Sending ACK to client
-ACK: 23
+ACK: 15
 Sending ACK to client
-ACK: 23
+ACK: 15
 Sending ACK to client
-ACK: 23
+ACK: 18
 Sending ACK to client
-ACK: 23
+ACK: 18
+Sending ACK to client
+ACK: 21
+Sending ACK to client
+ACK: 21
+Sending ACK to client
+ACK: 21
+Sending ACK to client
+ACK: 21
+Sending ACK to client
+ACK: 21
+Sending ACK to client
+ACK: 22
+Sending ACK to client
+ACK: 22
+Sending ACK to client
+ACK: 22
+Sending ACK to client
+ACK: 22
 Sending ACK to client
 ACK: 25
 Sending ACK to client
 ACK: 25
 Sending ACK to client
-ACK: 26
+ACK: 25
 Sending ACK to client
-ACK: 29
+ACK: 25
 Sending ACK to client
-ACK: 29
+ACK: 25
+Sending ACK to client
+ACK: 25
+Sending ACK to client
+ACK: 28
+Sending ACK to client
+ACK: 28
+Sending ACK to client
+ACK: 30
+Sending ACK to client
+ACK: 30
+Sending ACK to client
+ACK: 30
+Sending ACK to client
+ACK: 30
+Sending ACK to client
+ACK: 30
 Sending ACK to client
 ACK: 31
 Sending ACK to client
 ACK: 31
 Sending ACK to client
-ACK: 32
+ACK: 34
 Sending ACK to client
-ACK: 32
+ACK: 34
 Sending ACK to client
-ACK: 33
-Sending ACK to client
-ACK: 36
+ACK: 34
 Sending ACK to client
 ACK: 36
 Sending ACK to client
@@ -87,107 +185,161 @@ ACK: 39
 Sending ACK to client
 ACK: 39
 Sending ACK to client
-ACK: 39
+ACK: 41
 Sending ACK to client
-ACK: 39
+ACK: 41
 Sending ACK to client
-ACK: 39
+ACK: 44
 Sending ACK to client
-ACK: 39
+ACK: 44
 Sending ACK to client
-ACK: 42
+ACK: 44
 Sending ACK to client
-ACK: 42
+ACK: 44
 Sending ACK to client
-ACK: 45
+ACK: 44
 Sending ACK to client
-ACK: 45
+ACK: 44
 Sending ACK to client
-ACK: 45
+ACK: 47
 Sending ACK to client
-ACK: 45
+ACK: 47
 Sending ACK to client
-ACK: 45
+ACK: 47
 Sending ACK to client
-ACK: 45
+ACK: 48
 Sending ACK to client
-ACK: 45
-Sending ACK to client
-ACK: 46
-Sending ACK to client
-ACK: 46
+ACK: 48
 Sending ACK to client
 ACK: 49
 Sending ACK to client
 ACK: 49
 Sending ACK to client
-ACK: 52
+ACK: 50
 Sending ACK to client
-ACK: 52
+ACK: 50
 Sending ACK to client
-ACK: 52
+ACK: 51
+Sending ACK to client
+ACK: 51
+Sending ACK to client
+ACK: 53
+Sending ACK to client
+ACK: 53
+Sending ACK to client
+ACK: 53
 Sending ACK to client
 ACK: 55
 Sending ACK to client
 ACK: 55
 Sending ACK to client
 ACK: 55
+Sending ACK to client
+ACK: 57
+Sending ACK to client
+ACK: 57
 Sending ACK to client
 ACK: 58
 Sending ACK to client
 ACK: 58
 Sending ACK to client
-ACK: 60
+ACK: 58
 Sending ACK to client
-ACK: 60
+ACK: 61
 Sending ACK to client
-ACK: 60
+ACK: 61
 Sending ACK to client
-ACK: 60
+ACK: 61
 Sending ACK to client
-ACK: 63
+ACK: 62
 Sending ACK to client
-ACK: 63
+ACK: 62
 Sending ACK to client
-ACK: 66
+ACK: 62
 Sending ACK to client
-ACK: 66
+ACK: 62
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 65
+Sending ACK to client
+ACK: 68
+Sending ACK to client
+ACK: 68
+Sending ACK to client
+ACK: 68
+Sending ACK to client
+ACK: 68
+Sending ACK to client
+ACK: 68
 Sending ACK to client
 ACK: 69
 Sending ACK to client
-ACK: 69
+ACK: 70
 Sending ACK to client
-ACK: 69
+ACK: 70
 Sending ACK to client
-ACK: 71
+ACK: 70
 Sending ACK to client
-ACK: 71
+ACK: 70
 Sending ACK to client
-ACK: 72
+ACK: 70
 Sending ACK to client
-ACK: 72
+ACK: 73
 Sending ACK to client
-ACK: 75
+ACK: 73
 Sending ACK to client
-ACK: 75
+ACK: 74
 Sending ACK to client
-ACK: 75
+ACK: 74
+Sending ACK to client
+ACK: 74
+Sending ACK to client
+ACK: 77
+Sending ACK to client
+ACK: 77
+Sending ACK to client
+ACK: 77
+Sending ACK to client
+ACK: 77
+Sending ACK to client
+ACK: 77
 Sending ACK to client
 ACK: 78
 Sending ACK to client
-ACK: 78
+ACK: 80
 Sending ACK to client
-ACK: 79
+ACK: 80
 Sending ACK to client
-ACK: 79
+ACK: 80
 Sending ACK to client
 ACK: 82
 Sending ACK to client
 ACK: 82
 Sending ACK to client
-ACK: 85
+ACK: 83
 Sending ACK to client
-ACK: 85
+ACK: 83
+Sending ACK to client
+ACK: 83
 Sending ACK to client
 ACK: 85
 Sending ACK to client
